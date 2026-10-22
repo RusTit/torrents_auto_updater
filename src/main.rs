@@ -2,6 +2,7 @@ extern crate dotenv;
 
 use dotenv::dotenv;
 use std::env;
+use tracing::{debug, info, warn};
 use transmission_rpc::TransClient;
 use transmission_rpc::types::{
     BasicAuth, Result, RpcResponse, SessionGet, Torrent, TorrentGetField, Torrents,
@@ -9,10 +10,11 @@ use transmission_rpc::types::{
 
 #[tokio::main]
 async fn main() -> Result<()> {
+    tracing_subscriber::fmt::init();
     //dotenv().ok();
     match dotenv() {
-        Ok(path) => println!("Loaded .env from: {}", path.display()),
-        Err(e) => eprintln!("Failed to load .env: {}", e),
+        Ok(path) => debug!("Loaded .env from: {}", path.display()),
+        Err(e) => warn!("Failed to load .env: {}", e),
     }
 
     let url = env::var("TRANSMISSION_URL")
@@ -31,8 +33,8 @@ async fn main() -> Result<()> {
     let response: Result<RpcResponse<SessionGet>> = client.session_get().await;
 
     match response {
-        Ok(res) => println!("Connected successfully! Response: {:?}", res),
-        Err(e) => eprintln!("Failed to connect: {:?}", e),
+        Ok(res) => debug!("Connected successfully! Response: {:?}", res),
+        Err(e) => warn!("Failed to connect: {:?}", e),
     }
 
     let response_torrents: RpcResponse<Torrents<Torrent>> = client
@@ -67,7 +69,7 @@ async fn main() -> Result<()> {
             )
         })
         .collect();
-    println!("{:#?}", info);
+    info!("{:#?}", info);
 
     Ok(())
 }
