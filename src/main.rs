@@ -9,23 +9,23 @@ use transmission_rpc::types::{
     BasicAuth, Result, RpcResponse, SessionGet, Torrent, TorrentGetField, Torrents,
 };
 
-fn create_client() -> TransClient {
+fn create_client() -> std::result::Result<TransClient, Box<dyn std::error::Error + Send + Sync>> {
     let url = env::var("TRANSMISSION_URL")
         .unwrap_or("http://localhost:9091/transmission/rpc".to_string());
     // Replace with your Transmission RPC URL (e.g., http://localhost:9091/transmission/rpc)
-    let url = url.parse().unwrap();
-    let user = env::var("TRANSMISSION_LOGIN").unwrap();
-    let password = env::var("TRANSMISSION_PASSWORD").unwrap();
+    let url = url.parse()?;
+    let user = env::var("TRANSMISSION_LOGIN").unwrap_or("admin".to_string());
+    let password = env::var("TRANSMISSION_PASSWORD").unwrap_or_default();
 
     // Optional basic authentication if enabled on your Transmission daemon
     let basic_auth = BasicAuth { user, password };
 
-    TransClient::with_auth(url, basic_auth)
+    Ok(TransClient::with_auth(url, basic_auth))
 }
 
 async fn transmission_torrents_iteration()
 -> std::result::Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    let mut client = create_client();
+    let mut client = create_client()?;
 
     // Call session_get() as a test
     let response: Result<RpcResponse<SessionGet>> = client.session_get().await;
