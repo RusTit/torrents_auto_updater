@@ -2,21 +2,15 @@ extern crate dotenv;
 
 use dotenv::dotenv;
 use std::env;
+use tokio::time::{Duration, sleep};
 use tracing::{debug, info, warn};
 use transmission_rpc::TransClient;
 use transmission_rpc::types::{
     BasicAuth, Result, RpcResponse, SessionGet, Torrent, TorrentGetField, Torrents,
 };
 
-#[tokio::main]
-async fn main() -> Result<()> {
-    tracing_subscriber::fmt::init();
-    //dotenv().ok();
-    match dotenv() {
-        Ok(path) => debug!("Loaded .env from: {}", path.display()),
-        Err(e) => warn!("Failed to load .env: {}", e),
-    }
-
+async fn transmission_torrents_iteration()
+-> std::result::Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let url = env::var("TRANSMISSION_URL")
         .unwrap_or("http://localhost:9091/transmission/rpc".to_string());
     // Replace with your Transmission RPC URL (e.g., http://localhost:9091/transmission/rpc)
@@ -70,6 +64,30 @@ async fn main() -> Result<()> {
         })
         .collect();
     info!("{:#?}", info);
+    Ok(())
+}
+
+async fn transmission_torrent_task() {
+    loop {
+        let result = transmission_torrents_iteration().await;
+        match result {
+            Ok(()) => debug!("Success"),
+            Err(_) => warn!("Error"),
+        }
+        sleep(Duration::from_secs(60)).await
+    }
+}
+
+#[tokio::main]
+async fn main() -> Result<()> {
+    tracing_subscriber::fmt::init();
+    //dotenv().ok();
+    match dotenv() {
+        Ok(path) => debug!("Loaded .env from: {}", path.display()),
+        Err(e) => warn!("Failed to load .env: {}", e),
+    }
+
+    let ((),) = tokio::join!(transmission_torrent_task());
 
     Ok(())
 }
