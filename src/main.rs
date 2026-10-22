@@ -9,8 +9,7 @@ use transmission_rpc::types::{
     BasicAuth, Result, RpcResponse, SessionGet, Torrent, TorrentGetField, Torrents,
 };
 
-async fn transmission_torrents_iteration()
--> std::result::Result<(), Box<dyn std::error::Error + Send + Sync>> {
+fn create_client() -> TransClient {
     let url = env::var("TRANSMISSION_URL")
         .unwrap_or("http://localhost:9091/transmission/rpc".to_string());
     // Replace with your Transmission RPC URL (e.g., http://localhost:9091/transmission/rpc)
@@ -21,7 +20,12 @@ async fn transmission_torrents_iteration()
     // Optional basic authentication if enabled on your Transmission daemon
     let basic_auth = BasicAuth { user, password };
 
-    let mut client = TransClient::with_auth(url, basic_auth);
+    TransClient::with_auth(url, basic_auth)
+}
+
+async fn transmission_torrents_iteration()
+-> std::result::Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    let mut client = create_client();
 
     // Call session_get() as a test
     let response: Result<RpcResponse<SessionGet>> = client.session_get().await;
@@ -53,13 +57,13 @@ async fn transmission_torrents_iteration()
         .map(|it| {
             format!(
                 "{}. {} {} {} {:?} {} {}",
-                &it.id.as_ref().unwrap(),
-                &it.hash_string.as_ref().unwrap(),
-                &it.name.as_ref().unwrap(),
-                &it.download_dir.as_ref().unwrap(),
-                &it.error.as_ref().unwrap(),
-                &it.error_string.as_ref().unwrap(),
-                &it.comment.as_ref().unwrap(),
+                it.id.as_ref().unwrap(),
+                it.hash_string.as_ref().unwrap(),
+                it.name.as_ref().unwrap(),
+                it.download_dir.as_ref().unwrap(),
+                it.error.as_ref().unwrap(),
+                it.error_string.as_ref().unwrap(),
+                it.comment.as_ref().unwrap(),
             )
         })
         .collect();
