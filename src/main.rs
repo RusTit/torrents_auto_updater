@@ -41,16 +41,16 @@ async fn transmission_torrents_iteration()
 
     let response_torrents: RpcResponse<Torrents<Torrent>> = client
         .torrent_get(
-            Some(vec![
-                TorrentGetField::Id,
-                TorrentGetField::HashString,
-                TorrentGetField::Name,
-                TorrentGetField::DownloadDir,
-                TorrentGetField::Error,
-                TorrentGetField::ErrorString,
-                TorrentGetField::Comment,
-            ]),
-            None,
+            // Some(vec![
+            //     TorrentGetField::Id,
+            //     TorrentGetField::HashString,
+            //     TorrentGetField::Name,
+            //     TorrentGetField::DownloadDir,
+            //     TorrentGetField::Error,
+            //     TorrentGetField::ErrorString,
+            //     TorrentGetField::Comment,
+            // ]),
+            None, None,
         )
         .await?;
 
@@ -58,17 +58,19 @@ async fn transmission_torrents_iteration()
         .arguments
         .torrents
         .iter()
-        .filter(|it| match it.error {
-            None => return false,
-            Some(err) => match err {
-                transmission_rpc::types::ErrorType::Ok => false,
-                transmission_rpc::types::ErrorType::LocalError => true,
-                transmission_rpc::types::ErrorType::TrackerWarning => true,
-                transmission_rpc::types::ErrorType::TrackerError => true,
-            },
+        .filter(|it| {
+            if let Some(tracker_stats) = &it.tracker_stats {
+                for tracer_stat in tracker_stats.iter() {
+                    if tracer_stat.last_announce_result.to_lowercase().contains("unregistered") {
+                        return true;
+                    }
+                }
+            }
+            false
         })
         .collect();
 
+    info!("{:?}", torrents_with_error);
     info!(
         "Transmission: matched {} of total {}",
         torrents_with_error.len(),
