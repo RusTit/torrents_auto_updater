@@ -27,18 +27,9 @@ fn create_client() -> std::result::Result<TransClient, Box<dyn std::error::Error
     Ok(TransClient::with_auth(url, basic_auth))
 }
 
-async fn transmission_torrents_iteration()
--> std::result::Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    let mut client = create_client()?;
-
-    // Call session_get() as a test
-    let response: Result<RpcResponse<SessionGet>> = client.session_get().await;
-
-    match response {
-        Ok(res) => debug!("Connected successfully! Response: {:?}", res),
-        Err(e) => warn!("Failed to connect: {:?}", e),
-    }
-
+async fn fetch_unregistered_torrents(
+    client: &mut TransClient,
+) -> std::result::Result<Vec<Torrent>, Box<dyn std::error::Error + Send + Sync>> {
     let response_torrents: RpcResponse<Torrents<Torrent>> = client
         .torrent_get(
             // Some(vec![
@@ -53,20 +44,20 @@ async fn transmission_torrents_iteration()
             None, None,
         )
         .await?;
+    let total_torrents_count = response_torrents.arguments.torrents.len();
 
-    let torrents_with_error: Vec<&Torrent> = response_torrents
+    let torrents_with_error: Vec<Torrent> = response_torrents
         .arguments
         .torrents
-        .iter()
-        .filter(|it| {
-            if let Some(tracker_stats) = &it.tracker_stats {
-                for tracer_stat in tracker_stats.iter() {
-                    if tracer_stat.last_announce_result.to_lowercase().contains("unregistered") {
-                        return true;
-                    }
-                }
-            }
-            false
+        .into_iter()
+        .filter(|torrent| {
+            torrent.tracker_stats.as_ref().is_some_and(|stats| {
+                stats.iter().any(|stat| {
+                    stat.last_announce_result
+                        .to_lowercase()
+                        .contains("unregistered")
+                })
+            })
         })
         .collect();
 
@@ -74,8 +65,24 @@ async fn transmission_torrents_iteration()
     info!(
         "Transmission: matched {} of total {}",
         torrents_with_error.len(),
-        response_torrents.arguments.torrents.len()
+        total_torrents_count
     );
+    Ok(torrents_with_error)
+}
+
+async fn transmission_torrents_iteration()
+-> std::result::Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    let mut client = create_client()?;
+
+    // Call session_get() as a test
+    let response: Result<RpcResponse<SessionGet>> = client.session_get().await;
+
+    match response {
+        Ok(res) => debug!("Connected successfully! Response: {:?}", res),
+        Err(e) => warn!("Failed to connect: {:?}", e),
+    }
+
+    let torrents_with_error = fetch_unregistered_torrents(&mut client).await?;
 
     Ok(())
 }
