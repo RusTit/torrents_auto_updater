@@ -17,7 +17,7 @@ fn create_client() -> std::result::Result<TransClient, Box<dyn std::error::Error
     let user = env::var("TRANSMISSION_LOGIN").unwrap_or_default();
     let password = env::var("TRANSMISSION_PASSWORD").unwrap_or_default();
 
-    if user == "" && password == "" {
+    if user.is_empty() && password.is_empty() {
         return Ok(TransClient::new(url));
     }
 
@@ -58,16 +58,14 @@ async fn transmission_torrents_iteration()
         .arguments
         .torrents
         .iter()
-        .filter(|it| {
-            match it.error {
-                None => return false,
-                Some(err) => match err {
-                    transmission_rpc::types::ErrorType::Ok => return false,
-                    transmission_rpc::types::ErrorType::LocalError => return false,
-                    transmission_rpc::types::ErrorType::TrackerWarning => return false,
-                    transmission_rpc::types::ErrorType::TrackerError => return true,
-                },
-            };
+        .filter(|it| match it.error {
+            None => return false,
+            Some(err) => match err {
+                transmission_rpc::types::ErrorType::Ok => false,
+                transmission_rpc::types::ErrorType::LocalError => true,
+                transmission_rpc::types::ErrorType::TrackerWarning => true,
+                transmission_rpc::types::ErrorType::TrackerError => true,
+            },
         })
         .collect();
 
@@ -77,24 +75,6 @@ async fn transmission_torrents_iteration()
         response_torrents.arguments.torrents.len()
     );
 
-    let info: Vec<String> = response_torrents
-        .arguments
-        .torrents
-        .iter()
-        .map(|it| {
-            format!(
-                "{}. {} {} {} {:?} {} {}",
-                it.id.as_ref().unwrap(),
-                it.hash_string.as_ref().unwrap(),
-                it.name.as_ref().unwrap(),
-                it.download_dir.as_ref().unwrap(),
-                it.error.as_ref().unwrap(),
-                it.error_string.as_ref().unwrap(),
-                it.comment.as_ref().unwrap(),
-            )
-        })
-        .collect();
-    info!("{:#?}", info);
     Ok(())
 }
 
