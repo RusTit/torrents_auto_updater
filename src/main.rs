@@ -1,6 +1,7 @@
 extern crate dotenv;
 
 use dotenv::dotenv;
+use std::collections::HashMap;
 use std::env;
 use tokio::time::{Duration, sleep};
 use tracing::{debug, info, warn};
@@ -8,6 +9,10 @@ use transmission_rpc::TransClient;
 use transmission_rpc::types::{
     BasicAuth, Result, RpcResponse, SessionGet, Torrent, TorrentGetField, Torrents,
 };
+
+mod flaresolverr_proxy;
+
+use flaresolverr_proxy::FlareSolverrProxy;
 
 fn create_client() -> std::result::Result<TransClient, Box<dyn std::error::Error + Send + Sync>> {
     let url = env::var("TRANSMISSION_URL")
@@ -83,6 +88,25 @@ async fn transmission_torrents_iteration()
     }
 
     let torrents_with_error = fetch_unregistered_torrents(&mut client).await?;
+
+    if torrents_with_error.len() == 0 {
+        info!("No torrents with errors");
+        return Ok(());
+    }
+
+    let fl = FlareSolverrProxy::new(env::var("FLARESOLVERR_URL")?, env::var("PROXY_URL").ok());
+    let session_id = fl.get_or_create_session_id().await?;
+
+    for torrent in torrents_with_error.iter() {
+        if let Some(comment) = &torrent.comment {
+        } else {
+            warn!(
+                "Torrent {:?} {:?} don't have comment",
+                torrent.id,
+                torrent.name.as_ref()
+            );
+        }
+    }
 
     Ok(())
 }

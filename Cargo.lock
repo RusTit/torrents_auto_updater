@@ -1061,6 +1061,8 @@ dependencies = [
  "rustls",
  "rustls-pki-types",
  "rustls-platform-verifier",
+ "serde",
+ "serde_json",
  "sync_wrapper",
  "tokio",
  "tokio-rustls",
@@ -1550,6 +1552,7 @@ version = "0.1.0"
 dependencies = [
  "dotenv",
  "reqwest 0.13.5",
+ "serde_json",
  "tokio",
  "tracing",
  "tracing-subscriber",
